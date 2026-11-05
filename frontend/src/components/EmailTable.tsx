@@ -130,15 +130,42 @@ export default function EmailTable({ jobs, loading, type, onRefresh, pagination 
                     {!isScheduled && (
                       <td>
                         {job.etherealPreviewUrl ? (
-                          <a
-                            href={job.etherealPreviewUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            id={`preview-${job.id}`}
-                            className="btn btn-secondary btn-sm text-xs"
-                            style={{ color: 'var(--accent-primary-light)' }}>
-                            View →
-                          </a>
+                          (() => {
+                            try {
+                              if (job.etherealPreviewUrl.startsWith('{')) {
+                                const map: Record<string, string> = JSON.parse(job.etherealPreviewUrl);
+                                const entries = Object.entries(map);
+                                return (
+                                  <div className="flex flex-col gap-1 py-1">
+                                    {entries.map(([recip, url], idx) => (
+                                      <a
+                                        key={recip}
+                                        href={url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs hover:underline inline-flex items-center gap-1 font-medium"
+                                        style={{ color: 'var(--accent-primary-light)' }}
+                                        title={`View email sent to ${recip}`}>
+                                        Preview {entries.length > 1 ? `#${idx + 1}` : ''} ({recip.split('@')[0]}) ↗
+                                      </a>
+                                    ))}
+                                  </div>
+                                );
+                              }
+                            } catch {}
+
+                            return (
+                              <a
+                                href={job.etherealPreviewUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                id={`preview-${job.id}`}
+                                className="btn btn-secondary btn-sm text-xs"
+                                style={{ color: 'var(--accent-primary-light)' }}>
+                                View →
+                              </a>
+                            );
+                          })()
                         ) : job.errorMessage ? (
                           <span className="text-xs" style={{ color: '#f87171' }} title={job.errorMessage}>
                             Error

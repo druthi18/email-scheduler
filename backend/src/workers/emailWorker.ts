@@ -70,6 +70,7 @@ async function processEmailJob(job: Job<EmailJobData>): Promise<void> {
   });
 
   // 3. Send email to each recipient
+  const previewMap: Record<string, string> = {};
   let lastPreviewUrl = '';
   let lastError = '';
 
@@ -82,6 +83,7 @@ async function processEmailJob(job: Job<EmailJobData>): Promise<void> {
         body,
       });
       lastPreviewUrl = result.previewUrl;
+      previewMap[recipient] = result.previewUrl;
 
       // Enforce minimum delay between individual sends
       if (recipients.indexOf(recipient) < recipients.length - 1) {
@@ -101,13 +103,17 @@ async function processEmailJob(job: Job<EmailJobData>): Promise<void> {
     ? EmailStatus.FAILED
     : EmailStatus.SENT;
 
+  const previewData = Object.keys(previewMap).length > 1
+    ? JSON.stringify(previewMap)
+    : lastPreviewUrl;
+
   const sentAt = new Date();
   await prisma.emailJob.update({
     where: { id: jobDbId },
     data: {
       status: finalStatus,
       sentAt,
-      etherealPreviewUrl: lastPreviewUrl || null,
+      etherealPreviewUrl: previewData || null,
       errorMessage: lastError || null,
     },
   });
