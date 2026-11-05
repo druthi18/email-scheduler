@@ -23,14 +23,14 @@ function StatsCard({
   label: string; value: number; color: string; icon: string; subtitle?: string;
 }) {
   return (
-    <div className="rounded-xl p-5 flex items-center gap-4 fade-in group transition-all duration-300 hover:-translate-y-0.5"
+    <div className="rounded-2xl p-6 flex items-center gap-5 fade-in group transition-all duration-300 hover:-translate-y-1"
       style={{ 
-        background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%), var(--bg-card)', 
+        background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0%, rgba(255, 255, 255, 0.01) 100%), var(--bg-card)', 
         border: '1px solid var(--border)',
-        borderTop: `2.5px solid ${color}`,
-        boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.35)'
+        borderTop: `3px solid ${color}`,
+        boxShadow: '0 8px 30px -4px rgba(0, 0, 0, 0.45)'
       }}>
-      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0 transition-transform duration-300 group-hover:scale-105"
+      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 transition-transform duration-300 group-hover:scale-105"
         style={{ 
           background: color + '15', 
           border: `1px solid ${color}33`,
@@ -38,11 +38,11 @@ function StatsCard({
         }}>
         {icon}
       </div>
-      <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p>
-        <p className="text-2xl font-black mt-0.5 tracking-tight" style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{value}</p>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
+        <p className="text-3xl font-black mt-1 tracking-tight" style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{value}</p>
         {subtitle && (
-          <p className="text-[11px] text-slate-500 mt-0.5 truncate">{subtitle}</p>
+          <p className="text-xs text-slate-500 mt-1 truncate font-medium">{subtitle}</p>
         )}
       </div>
     </div>
@@ -212,20 +212,27 @@ function DashboardContent() {
       <div className="fixed inset-0 pointer-events-none"
         style={{ background: 'var(--gradient-glow)', zIndex: 0 }} />
 
-      <main className="relative z-10 max-w-7xl mx-auto px-6 py-8">
+      <main className="relative z-10 max-w-7xl mx-auto px-6 lg:px-10 py-10 lg:py-12 space-y-9">
         {/* Page title */}
-        <div className="mb-8 fade-in">
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-            Email Dashboard
-          </h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-            Manage your scheduled and sent email campaigns
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 fade-in">
+          <div>
+            <div className="flex items-center gap-2.5 mb-1.5">
+              <h1 className="text-3xl font-extrabold tracking-tight text-white">
+                Email Dashboard
+              </h1>
+              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                BullMQ Active
+              </span>
+            </div>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+              Manage your scheduled email campaigns, persistent Redis queues, and delivery logs
+            </p>
+          </div>
         </div>
 
         {/* Stats */}
         {stats && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <StatsCard label="Scheduled" value={stats.stats.scheduled} color="#6366f1" icon="⏰" subtitle="Waiting in BullMQ queue" />
             <StatsCard label="Sent" value={stats.stats.sent} color="#10b981" icon="✉️" subtitle="Delivered via Ethereal SMTP" />
             <StatsCard label="Failed" value={stats.stats.failed} color="#ef4444" icon="❌" subtitle="Bounce / delivery errors" />
@@ -235,45 +242,45 @@ function DashboardContent() {
 
         {/* Sender rate limit monitor */}
         {stats && stats.senderStats.length > 0 && (
-          <div className="mb-7 p-4.5 rounded-xl fade-in"
+          <div className="p-6 rounded-2xl fade-in"
             style={{ 
-              background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0) 100%), var(--bg-card)', 
+              background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, rgba(255, 255, 255, 0) 100%), var(--bg-card)', 
               border: '1px solid var(--border)',
-              boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.3)'
+              boxShadow: '0 8px 30px -4px rgba(0, 0, 0, 0.4)'
             }}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-300">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block" />
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-200">
                   SMTP Provider Quota Monitor
                 </p>
-                <span className="text-[10px] px-2 py-0.5 rounded-full text-slate-400 bg-white/5 border border-white/5">
+                <span className="text-[11px] px-2.5 py-0.5 rounded-full text-slate-400 bg-white/5 border border-white/5 font-medium">
                   Hourly Sliding Window
                 </span>
               </div>
-              <span className="text-xs text-slate-400">
-                Resets every 60 mins • Safe across multiple workers
+              <span className="text-xs text-slate-400 font-medium">
+                Auto-reschedules without dropping jobs • Multi-worker safe
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
               {stats.senderStats.map((s) => {
                 const percentage = Math.min((s.currentHourCount / s.limit) * 100, 100);
                 const isNearLimit = percentage >= 80;
                 const minutesLeft = Math.ceil(s.resetInMs / 60_000);
 
                 return (
-                  <div key={s.sender} className="p-3 rounded-lg flex flex-col gap-2"
-                    style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                  <div key={s.sender} className="p-4 rounded-xl flex flex-col gap-2.5"
+                    style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-slate-300 truncate max-w-[200px]" title={s.sender}>
+                      <span className="font-semibold text-slate-200 truncate max-w-[220px]" title={s.sender}>
                         {s.sender}
                       </span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-200">
-                          {s.currentHourCount} <span className="text-slate-500">/ {s.limit} emails</span>
+                      <div className="flex items-center gap-2.5">
+                        <span className="font-bold text-slate-200">
+                          {s.currentHourCount} <span className="text-slate-500 font-normal">/ {s.limit} emails</span>
                         </span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-slate-400 border border-white/5">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white/5 text-slate-300 border border-white/5">
                           {minutesLeft}m left
                         </span>
                       </div>
@@ -298,45 +305,47 @@ function DashboardContent() {
           </div>
         )}
 
-        {/* Toolbar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-          {/* Segmented Tabs */}
-          <div className="flex p-1 rounded-xl" 
-            style={{ 
-              background: 'var(--bg-card)', 
-              border: '1px solid var(--border)',
-              boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.4)'
-            }}>
-            {(['scheduled', 'sent'] as Tab[]).map((tab) => {
-              const isActive = activeTab === tab;
-              const count = tab === 'scheduled' ? stats?.stats.scheduled : stats?.stats.sent;
+        {/* Campaign Management Toolbar & Table section */}
+        <div className="space-y-6 pt-2">
+          {/* Toolbar */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            {/* Segmented Tabs */}
+            <div className="flex p-1.5 rounded-xl gap-1" 
+              style={{ 
+                background: 'var(--bg-card)', 
+                border: '1px solid var(--border)',
+                boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.4)'
+              }}>
+              {(['scheduled', 'sent'] as Tab[]).map((tab) => {
+                const isActive = activeTab === tab;
+                const count = tab === 'scheduled' ? stats?.stats.scheduled : stats?.stats.sent;
 
-              return (
-                <button
-                  key={tab}
-                  id={`tab-${tab}`}
-                  onClick={() => { setActiveTab(tab); setSearchResults(null); setSearchQuery(''); }}
-                  className="relative px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center gap-2"
-                  style={{
-                    color: isActive ? '#ffffff' : 'var(--text-secondary)',
-                    background: isActive ? 'var(--accent-primary-glow)' : 'transparent',
-                    border: isActive ? '1px solid rgba(99,102,241,0.4)' : '1px solid transparent',
-                    boxShadow: isActive ? '0 2px 10px rgba(99,102,241,0.2)' : 'none'
-                  }}>
-                  <span>{tab === 'scheduled' ? '⏰ Scheduled' : '✉️ Sent'}</span>
-                  {count !== undefined && count > 0 && (
-                    <span className="px-2 py-0.5 text-[10px] font-black rounded-full"
-                      style={{ 
-                        background: isActive ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.06)', 
-                        color: isActive ? '#c7d2fe' : 'var(--text-muted)' 
-                      }}>
-                      {count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+                return (
+                  <button
+                    key={tab}
+                    id={`tab-${tab}`}
+                    onClick={() => { setActiveTab(tab); setSearchResults(null); setSearchQuery(''); }}
+                    className="relative px-6 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center gap-2"
+                    style={{
+                      color: isActive ? '#ffffff' : 'var(--text-secondary)',
+                      background: isActive ? 'var(--accent-primary-glow)' : 'transparent',
+                      border: isActive ? '1px solid rgba(99,102,241,0.4)' : '1px solid transparent',
+                      boxShadow: isActive ? '0 2px 12px rgba(99,102,241,0.25)' : 'none'
+                    }}>
+                    <span>{tab === 'scheduled' ? '⏰ Scheduled' : '✉️ Sent'}</span>
+                    {count !== undefined && count > 0 && (
+                      <span className="px-2 py-0.5 text-[10px] font-black rounded-full"
+                        style={{ 
+                          background: isActive ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.06)', 
+                          color: isActive ? '#c7d2fe' : 'var(--text-muted)' 
+                        }}>
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
 
           {/* Right actions */}
           <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -427,23 +436,24 @@ function DashboardContent() {
           </div>
         )}
 
-        {/* Table */}
-        <EmailTable
-          jobs={displayJobs}
-          loading={tableLoading}
-          type={activeTab}
-          onRefresh={() => { activeTab === 'scheduled' ? loadScheduled() : loadSent(); loadStats(); }}
-          pagination={
-            searchResults === null
-              ? {
-                page: activeTab === 'scheduled' ? scheduledPagination.page : sentPagination.page,
-                totalPages: activeTab === 'scheduled' ? scheduledPagination.totalPages : sentPagination.totalPages,
-                total: activeTab === 'scheduled' ? scheduledPagination.total : sentPagination.total,
-                onPageChange: (p) => activeTab === 'scheduled' ? loadScheduled(p) : loadSent(p),
-              }
-              : undefined
-          }
-        />
+          {/* Table */}
+          <EmailTable
+            jobs={displayJobs}
+            loading={tableLoading}
+            type={activeTab}
+            onRefresh={() => { activeTab === 'scheduled' ? loadScheduled() : loadSent(); loadStats(); }}
+            pagination={
+              searchResults === null
+                ? {
+                  page: activeTab === 'scheduled' ? scheduledPagination.page : sentPagination.page,
+                  totalPages: activeTab === 'scheduled' ? scheduledPagination.totalPages : sentPagination.totalPages,
+                  total: activeTab === 'scheduled' ? scheduledPagination.total : sentPagination.total,
+                  onPageChange: (p) => activeTab === 'scheduled' ? loadScheduled(p) : loadSent(p),
+                }
+                : undefined
+            }
+          />
+        </div>
       </main>
 
       {/* Compose Modal */}

@@ -187,27 +187,28 @@ body {
 }
 
 .data-table th {
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-muted);
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.8px;
+  font-weight: 700;
+  letter-spacing: 1px;
   text-transform: uppercase;
-  padding: 12px 16px;
+  padding: 16px 24px;
   text-align: left;
   border-bottom: 1px solid var(--border);
 }
 
 .data-table td {
-  padding: 14px 16px;
+  padding: 20px 24px;
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-primary);
-  font-size: 13.5px;
+  font-size: 14px;
   transition: background 0.15s ease;
+  vertical-align: middle;
 }
 
 .data-table tr:hover td {
-  background: var(--bg-card-hover);
+  background: rgba(255, 255, 255, 0.025);
 }
 
 .data-table tr:last-child td {
@@ -220,10 +221,11 @@ body {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   color: var(--text-primary);
-  padding: 10px 14px;
-  border-radius: 8px;
+  padding: 12px 16px;
+  border-radius: 10px;
   font-size: 14px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  line-height: 1.5;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
   outline: none;
   font-family: inherit;
 }
@@ -231,6 +233,7 @@ body {
 .form-input:focus {
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 3px var(--accent-primary-glow);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .form-input::placeholder {
@@ -243,13 +246,13 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 14px;
+  padding: 11px 22px;
+  border-radius: 10px;
+  font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
   border: none;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   font-family: inherit;
   letter-spacing: 0.2px;
 }
