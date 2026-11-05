@@ -18,20 +18,32 @@ import { Button, Skeleton, Toast } from '@/components/ui';
 type Tab = 'scheduled' | 'sent';
 
 function StatsCard({
-  label, value, color, icon,
+  label, value, color, icon, subtitle,
 }: {
-  label: string; value: number; color: string; icon: string;
+  label: string; value: number; color: string; icon: string; subtitle?: string;
 }) {
   return (
-    <div className="rounded-xl p-5 flex items-center gap-4 fade-in"
-      style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-      <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl"
-        style={{ background: color + '1a', border: `1px solid ${color}33` }}>
+    <div className="rounded-xl p-5 flex items-center gap-4 fade-in group transition-all duration-300 hover:-translate-y-0.5"
+      style={{ 
+        background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%), var(--bg-card)', 
+        border: '1px solid var(--border)',
+        borderTop: `2.5px solid ${color}`,
+        boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.35)'
+      }}>
+      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0 transition-transform duration-300 group-hover:scale-105"
+        style={{ 
+          background: color + '15', 
+          border: `1px solid ${color}33`,
+          boxShadow: `0 0 20px ${color}1a`
+        }}>
         {icon}
       </div>
-      <div>
-        <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{label}</p>
-        <p className="text-2xl font-bold mt-0.5" style={{ color: 'var(--text-primary)' }}>{value}</p>
+      <div className="min-w-0">
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+        <p className="text-2xl font-black mt-0.5 tracking-tight" style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{value}</p>
+        {subtitle && (
+          <p className="text-[11px] text-slate-500 mt-0.5 truncate">{subtitle}</p>
+        )}
       </div>
     </div>
   );
@@ -213,98 +225,163 @@ function DashboardContent() {
 
         {/* Stats */}
         {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <StatsCard label="Scheduled" value={stats.stats.scheduled} color="#6366f1" icon="⏰" />
-            <StatsCard label="Sent" value={stats.stats.sent} color="#10b981" icon="✅" />
-            <StatsCard label="Failed" value={stats.stats.failed} color="#ef4444" icon="❌" />
-            <StatsCard label="Rate Limited" value={stats.stats.rateLimited} color="#f59e0b" icon="⏱️" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <StatsCard label="Scheduled" value={stats.stats.scheduled} color="#6366f1" icon="⏰" subtitle="Waiting in BullMQ queue" />
+            <StatsCard label="Sent" value={stats.stats.sent} color="#10b981" icon="✉️" subtitle="Delivered via Ethereal SMTP" />
+            <StatsCard label="Failed" value={stats.stats.failed} color="#ef4444" icon="❌" subtitle="Bounce / delivery errors" />
+            <StatsCard label="Rate Limited" value={stats.stats.rateLimited} color="#f59e0b" icon="⏱️" subtitle="Rescheduled to next hour" />
           </div>
         )}
 
-        {/* Sender rate limit info */}
+        {/* Sender rate limit monitor */}
         {stats && stats.senderStats.length > 0 && (
-          <div className="mb-6 p-4 rounded-xl fade-in"
-            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
-              Sender Rate Limits (this hour)
-            </p>
-            <div className="flex flex-wrap gap-4">
-              {stats.senderStats.map((s) => (
-                <div key={s.sender} className="flex items-center gap-3">
-                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{s.sender}</span>
-                  <div className="flex items-center gap-1">
-                    <div className="w-24 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+          <div className="mb-7 p-4.5 rounded-xl fade-in"
+            style={{ 
+              background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0) 100%), var(--bg-card)', 
+              border: '1px solid var(--border)',
+              boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.3)'
+            }}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                  SMTP Provider Quota Monitor
+                </p>
+                <span className="text-[10px] px-2 py-0.5 rounded-full text-slate-400 bg-white/5 border border-white/5">
+                  Hourly Sliding Window
+                </span>
+              </div>
+              <span className="text-xs text-slate-400">
+                Resets every 60 mins • Safe across multiple workers
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
+              {stats.senderStats.map((s) => {
+                const percentage = Math.min((s.currentHourCount / s.limit) * 100, 100);
+                const isNearLimit = percentage >= 80;
+                const minutesLeft = Math.ceil(s.resetInMs / 60_000);
+
+                return (
+                  <div key={s.sender} className="p-3 rounded-lg flex flex-col gap-2"
+                    style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-slate-300 truncate max-w-[200px]" title={s.sender}>
+                        {s.sender}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-200">
+                          {s.currentHourCount} <span className="text-slate-500">/ {s.limit} emails</span>
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-slate-400 border border-white/5">
+                          {minutesLeft}m left
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="w-full h-2 rounded-full overflow-hidden bg-slate-800">
                       <div
                         className="h-full rounded-full transition-all duration-500"
                         style={{
-                          width: `${Math.min((s.currentHourCount / s.limit) * 100, 100)}%`,
-                          background: s.currentHourCount >= s.limit ? '#ef4444' : 'var(--gradient-primary)',
+                          width: `${percentage}%`,
+                          background: isNearLimit 
+                            ? 'linear-gradient(90deg, #f59e0b, #ef4444)' 
+                            : 'var(--gradient-primary)',
+                          boxShadow: '0 0 10px rgba(99, 102, 241, 0.5)'
                         }}
                       />
                     </div>
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {s.currentHourCount}/{s.limit}
-                    </span>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
 
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-          {/* Tabs */}
-          <div className="flex p-1 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-            {(['scheduled', 'sent'] as Tab[]).map((tab) => (
-              <button
-                key={tab}
-                id={`tab-${tab}`}
-                onClick={() => { setActiveTab(tab); setSearchResults(null); setSearchQuery(''); }}
-                className="relative px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200"
-                style={{
-                  color: activeTab === tab ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  background: activeTab === tab ? 'var(--accent-primary-glow)' : 'transparent',
-                  border: activeTab === tab ? '1px solid rgba(99,102,241,0.3)' : '1px solid transparent',
-                }}>
-                {tab === 'scheduled' ? '⏰ Scheduled' : '✅ Sent'}
-                {tab === 'scheduled' && stats?.stats.scheduled ? (
-                  <span className="ml-2 px-1.5 py-0.5 text-xs rounded-full"
-                    style={{ background: 'rgba(99,102,241,0.3)', color: '#a5b4fc' }}>
-                    {stats.stats.scheduled}
-                  </span>
-                ) : null}
-              </button>
-            ))}
+          {/* Segmented Tabs */}
+          <div className="flex p-1 rounded-xl" 
+            style={{ 
+              background: 'var(--bg-card)', 
+              border: '1px solid var(--border)',
+              boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.4)'
+            }}>
+            {(['scheduled', 'sent'] as Tab[]).map((tab) => {
+              const isActive = activeTab === tab;
+              const count = tab === 'scheduled' ? stats?.stats.scheduled : stats?.stats.sent;
+
+              return (
+                <button
+                  key={tab}
+                  id={`tab-${tab}`}
+                  onClick={() => { setActiveTab(tab); setSearchResults(null); setSearchQuery(''); }}
+                  className="relative px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center gap-2"
+                  style={{
+                    color: isActive ? '#ffffff' : 'var(--text-secondary)',
+                    background: isActive ? 'var(--accent-primary-glow)' : 'transparent',
+                    border: isActive ? '1px solid rgba(99,102,241,0.4)' : '1px solid transparent',
+                    boxShadow: isActive ? '0 2px 10px rgba(99,102,241,0.2)' : 'none'
+                  }}>
+                  <span>{tab === 'scheduled' ? '⏰ Scheduled' : '✉️ Sent'}</span>
+                  {count !== undefined && count > 0 && (
+                    <span className="px-2 py-0.5 text-[10px] font-black rounded-full"
+                      style={{ 
+                        background: isActive ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.06)', 
+                        color: isActive ? '#c7d2fe' : 'var(--text-muted)' 
+                      }}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {/* Right actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
             {/* Search */}
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-initial">
               <input
                 id="email-search"
                 type="text"
-                placeholder="Search emails..."
+                placeholder="Search emails or leads..."
                 value={searchQuery}
                 onChange={handleSearchChange}
                 onKeyDown={handleSearchKeyDown}
-                className="form-input text-sm pr-10"
-                style={{ width: '220px', paddingLeft: '36px' }}
+                className="form-input text-xs pr-14"
+                style={{ 
+                  width: '100%',
+                  minWidth: '220px', 
+                  paddingLeft: '34px',
+                  background: 'rgba(255,255,255,0.03)',
+                  borderColor: 'var(--border)'
+                }}
               />
               <svg
                 className="absolute left-3 top-1/2 -translate-y-1/2"
-                width="14" height="14" viewBox="0 0 24 24"
-                fill="none" stroke="var(--text-muted)" strokeWidth="2">
+                width="13" height="13" viewBox="0 0 24 24"
+                fill="none" stroke="var(--text-muted)" strokeWidth="2.5">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
               </svg>
-              {searchLoading && (
+              {searchQuery && (
+                <button
+                  onClick={() => { setSearchQuery(''); setSearchResults(null); }}
+                  className="absolute right-7 top-1/2 -translate-y-1/2 text-xs text-slate-500 hover:text-slate-300">
+                  ×
+                </button>
+              )}
+              {searchLoading ? (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
                   <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none">
                     <circle cx="12" cy="12" r="10" stroke="var(--text-muted)" strokeWidth="3" strokeOpacity="0.3"/>
                     <path d="M12 2a10 10 0 0 1 10 10" stroke="var(--accent-primary-light)" strokeWidth="3" strokeLinecap="round"/>
                   </svg>
                 </div>
+              ) : (
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono text-slate-500 bg-white/5 px-1 py-0.5 rounded border border-white/5 pointer-events-none">
+                  ↵
+                </span>
               )}
             </div>
 
@@ -313,25 +390,25 @@ function DashboardContent() {
               id="refresh-btn"
               variant="secondary"
               size="sm"
-              onClick={() => { activeTab === 'scheduled' ? loadScheduled() : loadSent(); loadStats(); }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              onClick={() => { activeTab === 'scheduled' ? loadScheduled() : loadSent(); loadStats(); }}
+              style={{ background: 'rgba(255, 255, 255, 0.03)', borderColor: 'var(--border)' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="23,4 23,10 17,10"/><polyline points="1,20 1,14 7,14"/>
                 <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
               </svg>
-              Refresh
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
 
             {/* Compose */}
-            <Button
+            <button
               id="compose-btn"
-              variant="primary"
-              size="sm"
-              onClick={() => setComposeOpen(true)}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              onClick={() => setComposeOpen(true)}
+              className="btn btn-primary text-xs font-bold px-4 py-2.5 rounded-lg flex items-center gap-2 whitespace-nowrap shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
               </svg>
               Compose New Email
-            </Button>
+            </button>
           </div>
         </div>
 

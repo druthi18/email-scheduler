@@ -63,16 +63,21 @@ export default function EmailTable({ jobs, loading, type, onRefresh, pagination 
 
   return (
     <div className="fade-in">
-      <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid var(--border)' }}>
+      <div className="overflow-x-auto rounded-xl" 
+        style={{ 
+          border: '1px solid var(--border)', 
+          background: 'var(--bg-card)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.35)'
+        }}>
         <table className="data-table">
           <thead>
             <tr>
               <th>Recipients</th>
               <th>Subject</th>
               <th>Sender</th>
-              {isScheduled ? <th>Scheduled At</th> : <th>Sent At</th>}
+              {isScheduled ? <th>Scheduled For</th> : <th>Sent At</th>}
               <th>Status</th>
-              {!isScheduled && <th>Preview</th>}
+              {!isScheduled && <th>Ethereal Preview</th>}
               {isScheduled && <th>Actions</th>}
             </tr>
           </thead>
@@ -87,38 +92,45 @@ export default function EmailTable({ jobs, loading, type, onRefresh, pagination 
                   : `${recipientList[0]} +${recipientList.length - 1} more`;
 
                 return (
-                  <tr key={job.id}>
+                  <tr key={job.id} className="transition-colors hover:bg-white/[0.02]">
                     {/* Recipients */}
                     <td>
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
-                          style={{ background: 'var(--accent-primary-glow)', color: 'var(--accent-primary-light)' }}>
-                          {String(recipientList.length).padStart(1, '0')}
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
+                          style={{ 
+                            background: 'rgba(99, 102, 241, 0.15)', 
+                            color: '#a5b4fc',
+                            border: '1px solid rgba(99, 102, 241, 0.25)'
+                          }}>
+                          {recipientList.length}
                         </div>
-                        <span className="text-sm" title={recipientList.join(', ')} style={{ color: 'var(--text-primary)' }}>
-                          {truncate(recipientDisplay, 32)}
+                        <span className="text-sm font-medium" title={recipientList.join(', ')} style={{ color: 'var(--text-primary)' }}>
+                          {truncate(recipientDisplay, 34)}
                         </span>
                       </div>
                     </td>
 
                     {/* Subject */}
                     <td>
-                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                      <span className="font-semibold text-slate-200">
                         {truncate(job.subject, 40)}
                       </span>
                     </td>
 
                     {/* Sender */}
                     <td>
-                      <span className="text-xs px-2 py-1 rounded-md" 
-                        style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                      <span className="text-xs px-2 py-1 rounded-md font-mono" 
+                        style={{ background: 'rgba(255, 255, 255, 0.03)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
                         {truncate(job.sender, 24)}
                       </span>
                     </td>
 
                     {/* Date */}
                     <td style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-                      {isScheduled ? formatDate(job.scheduledAt) : formatDate(job.sentAt || '')}
+                      <span className="inline-flex items-center gap-1.5 font-medium">
+                        <span className="text-slate-500 text-xs">🕒</span>
+                        {isScheduled ? formatDate(job.scheduledAt) : formatDate(job.sentAt || '')}
+                      </span>
                     </td>
 
                     {/* Status */}
@@ -136,17 +148,29 @@ export default function EmailTable({ jobs, loading, type, onRefresh, pagination 
                                 const map: Record<string, string> = JSON.parse(job.etherealPreviewUrl);
                                 const entries = Object.entries(map);
                                 return (
-                                  <div className="flex flex-col gap-1 py-1">
+                                  <div className="flex flex-col gap-1.5 py-1">
                                     {entries.map(([recip, url], idx) => (
                                       <a
                                         key={recip}
                                         href={url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-xs hover:underline inline-flex items-center gap-1 font-medium"
-                                        style={{ color: 'var(--accent-primary-light)' }}
+                                        className="text-[11px] font-semibold px-2.5 py-1 rounded-md transition-all inline-flex items-center gap-1.5 w-fit"
+                                        style={{ 
+                                          background: 'rgba(99, 102, 241, 0.12)', 
+                                          color: '#a5b4fc',
+                                          border: '1px solid rgba(99, 102, 241, 0.25)'
+                                        }}
+                                        onMouseEnter={e => {
+                                          e.currentTarget.style.background = 'rgba(99, 102, 241, 0.25)';
+                                          e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.45)';
+                                        }}
+                                        onMouseLeave={e => {
+                                          e.currentTarget.style.background = 'rgba(99, 102, 241, 0.12)';
+                                          e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.25)';
+                                        }}
                                         title={`View email sent to ${recip}`}>
-                                        Preview {entries.length > 1 ? `#${idx + 1}` : ''} ({recip.split('@')[0]}) ↗
+                                        Preview #{idx + 1} ({recip.split('@')[0]}) ↗
                                       </a>
                                     ))}
                                   </div>
@@ -160,15 +184,27 @@ export default function EmailTable({ jobs, loading, type, onRefresh, pagination 
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 id={`preview-${job.id}`}
-                                className="btn btn-secondary btn-sm text-xs"
-                                style={{ color: 'var(--accent-primary-light)' }}>
-                                View →
+                                className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all inline-flex items-center gap-1.5"
+                                style={{ 
+                                  background: 'rgba(99, 102, 241, 0.15)', 
+                                  color: '#818cf8',
+                                  border: '1px solid rgba(99, 102, 241, 0.3)'
+                                }}
+                                onMouseEnter={e => {
+                                  e.currentTarget.style.background = 'rgba(99, 102, 241, 0.25)';
+                                  e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.5)';
+                                }}
+                                onMouseLeave={e => {
+                                  e.currentTarget.style.background = 'rgba(99, 102, 241, 0.15)';
+                                  e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.3)';
+                                }}>
+                                View in Ethereal ↗
                               </a>
                             );
                           })()
                         ) : job.errorMessage ? (
-                          <span className="text-xs" style={{ color: '#f87171' }} title={job.errorMessage}>
-                            Error
+                          <span className="text-xs px-2 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20" title={job.errorMessage}>
+                            Error: {truncate(job.errorMessage, 20)}
                           </span>
                         ) : (
                           <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>—</span>

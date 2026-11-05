@@ -89,9 +89,24 @@ function LoginContent() {
           <button
             id="google-login-btn"
             onClick={handleGoogleLogin}
-            className="btn btn-secondary w-full mb-4"
-            style={{ padding: '14px 20px', fontSize: '15px', background: 'rgba(255,255,255,0.05)', borderColor: 'var(--border)' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            className="w-full flex items-center justify-center gap-3 py-3.5 px-4 rounded-xl font-semibold text-sm transition-all duration-200 group"
+            style={{ 
+              background: 'rgba(255, 255, 255, 0.05)', 
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              color: '#ffffff',
+              boxShadow: '0 4px 15px rgba(0, 0, 0, 0.25)'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+              e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.5)';
+              e.currentTarget.style.boxShadow = '0 0 25px rgba(99, 102, 241, 0.25)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+              e.currentTarget.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.25)';
+            }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="shrink-0 transition-transform group-hover:scale-105">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
               <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
@@ -101,20 +116,23 @@ function LoginContent() {
           </button>
 
           {/* Features list */}
-          <div className="mt-8 pt-6" style={{ borderTop: '1px solid var(--border)' }}>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
-              What you get
+          <div className="mt-7 pt-5" style={{ borderTop: '1px solid var(--border)' }}>
+            <p className="text-[11px] font-bold uppercase tracking-wider mb-3.5 text-slate-400">
+              Enterprise System Features
             </p>
-            <ul className="space-y-3">
+            <ul className="space-y-2.5">
               {[
-                { icon: '⚡', text: 'BullMQ-powered reliable scheduling' },
-                { icon: '📊', text: 'Real-time queue visibility dashboard' },
-                { icon: '🔒', text: 'Rate limiting with Slack alerts' },
-                { icon: '🔍', text: 'Elasticsearch email search' },
-              ].map((feature) => (
-                <li key={feature.text} className="flex items-center gap-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
-                  <span className="text-base">{feature.icon}</span>
-                  {feature.text}
+                { icon: '⚡', title: 'BullMQ + Redis', desc: 'Persistent delayed queues with 0% cron dependency' },
+                { icon: '📊', title: 'Live Queue Observability', desc: 'Real-time Bull-Board UI for worker monitoring' },
+                { icon: '🔒', title: 'Sliding Rate Limiter', desc: 'Per-sender quotas with automatic Slack webhook alerts' },
+                { icon: '🔍', title: 'Elasticsearch Indexing', desc: 'Instant full-text query engine across sent logs' },
+              ].map((f) => (
+                <li key={f.title} className="flex items-start gap-3 text-xs text-slate-300">
+                  <span className="text-sm shrink-0">{f.icon}</span>
+                  <div>
+                    <span className="font-semibold text-white">{f.title}: </span>
+                    <span className="text-slate-400">{f.desc}</span>
+                  </div>
                 </li>
               ))}
             </ul>

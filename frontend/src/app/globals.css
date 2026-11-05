@@ -1,32 +1,36 @@
 @import "tailwindcss";
 
 :root {
-  /* Color Palette */
-  --bg-primary: #0a0d14;
-  --bg-secondary: #0f1420;
-  --bg-card: #131926;
-  --bg-card-hover: #1a2235;
-  --border: #1e2a3d;
-  --border-subtle: #161f30;
+  /* High-end Dark Theme Color Palette */
+  --bg-primary: #07090e;
+  --bg-secondary: #0d111a;
+  --bg-card: #111624;
+  --bg-card-hover: #171e30;
+  --bg-card-active: #1c253c;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-focus: rgba(99, 102, 241, 0.5);
+  --border-subtle: rgba(255, 255, 255, 0.04);
 
   /* Accent Colors */
   --accent-primary: #6366f1;
   --accent-primary-light: #818cf8;
-  --accent-primary-glow: rgba(99, 102, 241, 0.15);
+  --accent-primary-glow: rgba(99, 102, 241, 0.25);
   --accent-secondary: #06b6d4;
   --accent-success: #10b981;
+  --accent-success-glow: rgba(16, 185, 129, 0.2);
   --accent-warning: #f59e0b;
   --accent-danger: #ef4444;
 
   /* Text */
-  --text-primary: #f1f5f9;
+  --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
-  --text-muted: #475569;
+  --text-muted: #64748b;
 
   /* Gradients */
   --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #06b6d4 100%);
-  --gradient-card: linear-gradient(135deg, #131926 0%, #0f1420 100%);
-  --gradient-glow: radial-gradient(ellipse at top, rgba(99, 102, 241, 0.08) 0%, transparent 60%);
+  --gradient-primary-hover: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #0891b2 100%);
+  --gradient-card: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 100%);
+  --gradient-glow: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
 }
 
 * {
