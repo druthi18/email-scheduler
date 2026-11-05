@@ -1,0 +1,89 @@
+// This is your Prisma schema file
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EmailStatus {
+  SCHEDULED
+  PROCESSING
+  SENT
+  FAILED
+  RATE_LIMITED
+  CANCELLED
+}
+
+model User {
+  id              String    @id @default(cuid())
+  googleId        String    @unique
+  email           String    @unique
+  name            String
+  avatar          String?
+  slackWebhookUrl String?
+  slackTeamId     String?
+  slackChannel    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  emailJobs       EmailJob[]
+
+  @@map("users")
+}
+
+model EmailJob {
+  id               String      @id @default(cuid())
+  userId           String
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Email content
+  subject          String
+  body             String      @db.Text
+  recipients       Json        // String[] array of email addresses
+  sender           String      // sender email address
+  
+  // Scheduling
+  scheduledAt      DateTime
+  sentAt           DateTime?
+  
+  // Status
+  status           EmailStatus @default(SCHEDULED)
+  
+  // BullMQ
+  jobId            String?     // BullMQ job ID
+  idempotencyKey   String      @unique // hash to prevent duplicates
+  
+  // Config
+  hourlyLimit      Int         @default(50)
+  delayBetweenMs   Int         @default(2000)
+  
+  // Result
+  etherealPreviewUrl String?
+  errorMessage     String?
+  
+  // Timestamps
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@map("email_jobs")
+  @@index([userId, status])
+  @@index([scheduledAt])
+  @@index([idempotencyKey])
+}
+
+model SenderRateLimit {
+  id          String   @id @default(cuid())
+  senderId    String   // sender email
+  hourWindow  String   // "sender@email.com:1234" (sender:hourTimestamp)
+  count       Int      @default(0)
+  resetAt     DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([senderId, hourWindow])
+  @@map("sender_rate_limits")
+}

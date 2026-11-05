@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Next.js build
+.next/
+*/.next/
+out/
+
+# Environment files (never commit real secrets)
+.env
+.env.local
+.env.*.local
+*.env
+backend/.env
+frontend/.env.local
+
+# Preserve example env files
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Temporary test scripts
+query.sql
+test-seed.sql
+*.sql
+!backend/prisma/migrations/**/*.sql
+
+# TypeScript build output
+dist/
+build/
+*.tsbuildinfo
