@@ -174,17 +174,17 @@ function DashboardContent() {
 
       <div className="flex-1 flex max-w-7xl w-full mx-auto">
         {/* Left Sidebar (Figma Screens 2, 3) */}
-        <aside className="w-64 border-r border-slate-200 bg-white p-5 flex flex-col justify-between shrink-0">
+        <aside className="w-68 border-r border-slate-200 bg-white p-6 flex flex-col justify-between shrink-0">
           <div>
             {/* User Account Selector Pill */}
-            <div className="flex items-center justify-between p-2 rounded-xl border border-slate-200 bg-slate-50/50 mb-5">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-7 h-7 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-xs shrink-0">
+            <div className="flex items-center justify-between p-3 rounded-2xl border border-slate-200 bg-slate-50/70 mb-6 shadow-xs">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-xs">
                   {user.name ? user.name[0].toUpperCase() : 'U'}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-slate-800 truncate">{user.name || 'User'}</p>
-                  <p className="text-[10px] text-slate-400 truncate">{user.email}</p>
+                  <p className="text-sm font-bold text-slate-900 truncate">{user.name || 'User'}</p>
+                  <p className="text-xs text-slate-400 truncate">{user.email}</p>
                 </div>
               </div>
               <span className="text-slate-400 text-xs">▼</span>
@@ -193,12 +193,12 @@ function DashboardContent() {
             {/* "+ Compose" Button (Figma Screens 2, 3) */}
             <button
               onClick={() => { setSelectedJob(null); setComposeOpen(true); }}
-              className="w-full py-3 px-4 rounded-full font-bold text-sm transition-all duration-150 flex items-center justify-center gap-2 mb-6"
+              className="w-full py-3.5 px-5 rounded-full font-bold text-sm transition-all duration-150 flex items-center justify-center gap-2 mb-7 shadow-sm"
               style={{ 
                 background: '#ffffff', 
                 border: '1.5px solid #00a854',
                 color: '#00a854',
-                boxShadow: '0 2px 8px rgba(0, 168, 84, 0.15)'
+                boxShadow: '0 2px 10px rgba(0, 168, 84, 0.15)'
               }}
               onMouseEnter={e => {
                 e.currentTarget.style.background = '#00a854';
@@ -208,25 +208,25 @@ function DashboardContent() {
                 e.currentTarget.style.background = '#ffffff';
                 e.currentTarget.style.color = '#00a854';
               }}>
-              <span className="text-lg leading-none">+</span>
-              <span>Compose</span>
+              <span className="text-xl leading-none font-light">+</span>
+              <span className="text-sm tracking-wide">Compose</span>
             </button>
 
             {/* Navigation Tabs (Figma Screens 2, 3) */}
-            <nav className="space-y-1">
+            <nav className="space-y-1.5">
               <button
                 onClick={() => { setActiveTab('scheduled'); setSelectedJob(null); setSearchResults(null); }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${
                   activeTab === 'scheduled'
                     ? 'bg-[#e8f8f0] text-[#00a854]'
                     : 'text-slate-600 hover:bg-slate-50'
                 }`}>
-                <div className="flex items-center gap-2.5">
-                  <span className="text-sm">⏰</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-base">⏰</span>
                   <span>Scheduled</span>
                 </div>
                 {stats && stats.stats.scheduled > 0 && (
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                     activeTab === 'scheduled' ? 'bg-[#00a854] text-white' : 'bg-slate-100 text-slate-600'
                   }`}>
                     {stats.stats.scheduled}
@@ -236,17 +236,17 @@ function DashboardContent() {
 
               <button
                 onClick={() => { setActiveTab('sent'); setSelectedJob(null); setSearchResults(null); }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${
                   activeTab === 'sent'
                     ? 'bg-[#e8f8f0] text-[#00a854]'
                     : 'text-slate-600 hover:bg-slate-50'
                 }`}>
-                <div className="flex items-center gap-2.5">
-                  <span className="text-sm">✉️</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-base">✉️</span>
                   <span>Sent</span>
                 </div>
                 {stats && stats.stats.sent > 0 && (
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                     activeTab === 'sent' ? 'bg-[#00a854] text-white' : 'bg-slate-100 text-slate-600'
                   }`}>
                     {stats.stats.sent}

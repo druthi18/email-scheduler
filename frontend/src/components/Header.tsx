@@ -59,17 +59,17 @@ export default function Header({ user, onUserUpdate, searchQuery = '', onSearchC
         <div className="flex-1 max-w-xl mx-auto">
           <div className="relative">
             <svg 
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-              width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+              width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
             </svg>
             <input
               type="text"
-              placeholder="Search..."
+              placeholder="Search by recipient, subject, or content..."
               value={searchQuery}
               onChange={e => onSearchChange?.(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && onSearchSubmit?.()}
-              className="w-full pl-10 pr-4 py-2 rounded-full text-xs bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-[#00a854] transition-all"
+              className="w-full pl-11 pr-5 py-2.5 rounded-full text-sm bg-slate-50/80 border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-[#00a854] shadow-xs transition-all"
             />
           </div>
         </div>
