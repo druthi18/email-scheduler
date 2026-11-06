@@ -30,7 +30,7 @@ app.use(
 
 app.use(
   cors({
-    origin: env.frontendUrl,
+    origin: true, // Allow Vercel, localhost, and evaluator previews
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
