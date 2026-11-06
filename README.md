@@ -111,8 +111,36 @@ npm run dev
 npm run dev:worker
 ```
 
-Backend runs at `http://localhost:4000`
-Bull-Board dashboard at `http://localhost:4000/admin/queues`
+Backend runs at `http://localhost:4000`  
+Bull-Board queue dashboard at `http://localhost:4000/admin/queues`  
+Health check at `http://localhost:4000/health`  
+
+---
+
+### 3. SMTP & Email Delivery Setup
+
+The scheduler features **dual-mode email delivery**:
+
+#### Option A: Ethereal Email (Default Mock Sandbox — Safe Testing)
+- By default, if no external SMTP credentials are provided in `backend/.env`, the scheduler automatically uses **Ethereal Mail** (`nodemailer.createTestAccount()`).
+- Ethereal catches all outgoing emails and generates an interactive web preview link (e.g. `https://ethereal.email/message/...`) so campaigns can be verified without spamming or burning real domain reputation.
+- In the dashboard **Sent** tab, click **View Preview ↗** to inspect the rendered email, headers, and payload.
+
+#### Option B: Real SMTP (Gmail / Custom Provider — Real Inbox Delivery)
+To deliver emails directly to real inboxes (like Gmail, Outlook), simply add your SMTP credentials to `backend/.env`:
+
+```env
+# ============================================================
+# Real SMTP Configuration (Gmail)
+# ============================================================
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_16_character_app_password
+```
+*(To generate a 16-character Google App Password: Google Account ➔ Security ➔ 2-Step Verification ➔ App Passwords ➔ Create)*.  
+When configured, emails are delivered directly to real inboxes and marked with a **`✓ Inbox Delivered`** badge.
 
 ### 3. Frontend Setup
 
@@ -287,10 +315,39 @@ email/
 
 ---
 
-## 🔧 Assumptions & Trade-offs
+## 📹 Demo Video Recording Guide (≤ 5 mins)
 
-1. **Ethereal Email** creates one test SMTP account per unique sender email. In production, replace with real SMTP credentials per sender.
-2. **Elasticsearch** is optional — the app degrades gracefully if ES is unavailable (search returns empty, email sends still work).
-3. **Slack OAuth** requires a publicly accessible redirect URI in production (use ngrok for local testing).
-4. The **idempotency key** is SHA-256 of `userId + sender + subject + scheduledAt + sorted recipients`. Rescheduling on rate-limit uses a different key suffix to allow the new delayed job.
-5. The **minimum 2s delay** is enforced globally in the worker, plus per-recipient within a batch. This exceeds the BullMQ limiter alone.
+When recording your submission walkthrough, follow this structured plan:
+
+1. **Dashboard & Creation (1 min):**
+   - Open `http://localhost:3000/dashboard`.
+   - Show the stats cards and SMTP Quota Monitor.
+   - Click **Compose New Email**, add recipients, select `⚡ Send in 30s` (or pick a future time), and schedule.
+   - Show the newly created row in the **Scheduled** tab.
+
+2. **BullMQ Queue Verification (1 min):**
+   - Open Bull-Board at `http://localhost:4000/admin/queues`.
+   - Show the delayed job waiting in Redis with its active countdown timer.
+   - Switch back to the dashboard once 30 seconds pass and verify the row moves to the **Sent** tab with preview/delivery status.
+
+3. **Server Restart Scenario (1 min):**
+   - Schedule an email for +2 minutes in the future.
+   - In your terminal, stop the backend server (`Ctrl + C`).
+   - Show that the backend is down.
+   - Restart the backend (`npm run dev`) and BullMQ worker (`npm run dev:worker`).
+   - Refresh the dashboard: the scheduled job is still intact in Redis/Postgres and delivers right on schedule when the timer matures!
+
+4. **Rate Limiting & Delay Behavior Under Load (1 min):**
+   - Demonstrate scheduling a campaign with 5+ recipients and a 2000ms delay.
+   - Show in worker logs or Bull-Board how each email is processed sequentially with the mandatory delay.
+   - Demonstrate the quota bar updating in real-time, proving that exceeding limits reschedules jobs rather than failing them.
+
+---
+
+## 🔧 Assumptions, Shortcuts & Trade-offs
+
+1. **Dual SMTP Modes:** Defaults to **Ethereal Email** test sandbox so evaluators can run the project immediately without needing private email credentials. Adding `SMTP_USER` and `SMTP_PASS` seamlessly upgrades to production Gmail delivery.
+2. **Persistence Guarantee:** Scheduled emails are dual-persisted — in PostgreSQL for relational queries and state tracking, and in Redis Sorted Sets (ZSETs) for millisecond-precision delayed execution. Even if the Node process crashes, Redis preserves all pending timers.
+3. **Idempotency Strategy:** Each job calculates a SHA-256 hash of `userId + sender + subject + scheduledAt + sorted recipients` used as the BullMQ Job ID. This prevents accidental duplicate schedules from network retries or double form submissions.
+4. **Elasticsearch Resilience:** Elasticsearch is treated as an auxiliary search index. If ES is offline or not installed, the application continues to schedule and deliver emails with standard database queries.
+5. **Rate Limiting Sliding Window:** Rate limits use Redis atomic `INCR` with an hourly TTL window per sender. When a quota is reached, jobs are gracefully rescheduled to the next hour rather than dropping outreach leads.

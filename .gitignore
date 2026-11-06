@@ -37,6 +37,10 @@ test-seed.sql
 *.sql
 !backend/prisma/migrations/**/*.sql
 
+# Archives
+*.zip
+*.tar.gz
+
 # TypeScript build output
 dist/
 build/

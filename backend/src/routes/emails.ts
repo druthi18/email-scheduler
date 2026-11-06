@@ -171,6 +171,7 @@ router.get('/scheduled', requireAuth, async (req: Request, res: Response) => {
         select: {
           id: true,
           subject: true,
+          body: true,
           sender: true,
           recipients: true,
           scheduledAt: true,
@@ -222,6 +223,7 @@ router.get('/sent', requireAuth, async (req: Request, res: Response) => {
         select: {
           id: true,
           subject: true,
+          body: true,
           sender: true,
           recipients: true,
           scheduledAt: true,

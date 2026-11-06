@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { scheduleEmail, parseCSV } from '@/lib/api';
-import { Button, Input, Textarea, Toast } from './ui';
+import { Toast } from './ui';
 
 interface ComposeModalProps {
   onClose: () => void;
   onSuccess: () => void;
+  senderEmail?: string;
 }
 
 interface ToastState {
@@ -24,22 +25,35 @@ function toLocalISOString(date: Date): string {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-export default function ComposeModal({ onClose, onSuccess }: ComposeModalProps) {
+export default function ComposeModal({ onClose, onSuccess, senderEmail = 'druthi180405@gmail.com' }: ComposeModalProps) {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [showScheduleDropdown, setShowScheduleDropdown] = useState(false);
 
   const [form, setForm] = useState({
     subject: '',
     body: '',
-    sender: '',
-    scheduledAt: toLocalISOString(new Date(Date.now() + 2 * 60_000)),
+    sender: senderEmail,
+    scheduledAt: toLocalISOString(new Date(Date.now() + 30 * 1000)), // default in 30s
     hourlyLimit: 50,
-    delayBetweenMs: 2000,
+    delayBetweenSec: 2,
   });
+
   const [recipients, setRecipients] = useState<string[]>([]);
   const [rawRecipients, setRawRecipients] = useState('');
   const [recipientsFromFile, setRecipientsFromFile] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowScheduleDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -47,7 +61,7 @@ export default function ComposeModal({ onClose, onSuccess }: ComposeModalProps) 
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
-  const handleRecipientsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleRecipientsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setRawRecipients(val);
     const parsed = parseCSV(val);
@@ -65,7 +79,7 @@ export default function ComposeModal({ onClose, onSuccess }: ComposeModalProps) 
       const parsed = parseCSV(content);
       setRecipients(parsed);
       setRecipientsFromFile(parsed.length);
-      setRawRecipients('');
+      setRawRecipients(parsed.join(', '));
     };
     reader.readAsText(file);
   }, []);
@@ -74,36 +88,36 @@ export default function ComposeModal({ onClose, onSuccess }: ComposeModalProps) 
     const newErrors: Record<string, string> = {};
     if (!form.subject.trim()) newErrors.subject = 'Subject is required';
     if (!form.body.trim()) newErrors.body = 'Body is required';
-    if (!form.sender.trim()) newErrors.sender = 'Sender email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.sender)) newErrors.sender = 'Invalid email address';
-    if (!form.scheduledAt) newErrors.scheduledAt = 'Schedule time is required';
-    else if (new Date(form.scheduledAt) <= new Date()) newErrors.scheduledAt = 'Must be in the future';
-    if (recipients.length === 0) newErrors.recipients = 'At least one recipient required';
+    if (recipients.length === 0) newErrors.recipients = 'At least one recipient is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (scheduleIso?: string) => {
     if (!validate()) return;
 
     setLoading(true);
     try {
+      const sendDate = scheduleIso ? new Date(scheduleIso) : new Date(form.scheduledAt);
+      const scheduledIso = (isNaN(sendDate.getTime()) || sendDate <= new Date())
+        ? new Date(Date.now() + 20_000).toISOString()
+        : sendDate.toISOString();
+
       const result = await scheduleEmail({
         subject: form.subject,
         body: form.body,
         recipients,
         sender: form.sender,
-        scheduledAt: new Date(form.scheduledAt).toISOString(),
-        hourlyLimit: Number(form.hourlyLimit),
-        delayBetweenMs: Number(form.delayBetweenMs),
+        scheduledAt: scheduledIso,
+        hourlyLimit: Number(form.hourlyLimit) || 50,
+        delayBetweenMs: (Number(form.delayBetweenSec) || 2) * 1000,
       });
 
       setToast({ message: `✅ Scheduled ${result.recipientCount} email(s) successfully!`, type: 'success' });
       setTimeout(() => {
         onSuccess();
         onClose();
-      }, 1500);
+      }, 1200);
     } catch (error) {
       setToast({ message: (error as Error).message || 'Failed to schedule email', type: 'error' });
     } finally {
@@ -111,260 +125,283 @@ export default function ComposeModal({ onClose, onSuccess }: ComposeModalProps) 
     }
   };
 
-  // Min datetime in local time
-  const minDatetime = toLocalISOString(new Date());
+  // Schedule presets from Figma
+  const setPresetTomorrow = (hour: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(hour, 0, 0, 0);
+    setForm(prev => ({ ...prev, scheduledAt: toLocalISOString(d) }));
+    setShowScheduleDropdown(false);
+  };
 
-  const setQuickTime = (minutes: number) => {
-    const nextTime = new Date(Date.now() + minutes * 60_000);
-    setForm(prev => ({ ...prev, scheduledAt: toLocalISOString(nextTime) }));
-    if (errors.scheduledAt) setErrors(prev => ({ ...prev, scheduledAt: '' }));
+  const setPresetIn30s = () => {
+    const d = new Date(Date.now() + 30 * 1000);
+    setForm(prev => ({ ...prev, scheduledAt: toLocalISOString(d) }));
+    setShowScheduleDropdown(false);
   };
 
   return (
     <>
-      <div className="modal-backdrop backdrop-blur-md" onClick={(e) => e.target === e.currentTarget && onClose()}>
-        <div className="modal-content overflow-hidden" 
-          style={{ 
-            boxShadow: '0 25px 70px rgba(0, 0, 0, 0.7), 0 0 40px rgba(99, 102, 241, 0.15)',
-            border: '1px solid var(--border)',
-            borderTop: '3px solid var(--accent-primary)'
-          }}>
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 pb-5" style={{ borderBottom: '1px solid var(--border)', background: 'rgba(255, 255, 255, 0.01)' }}>
+      <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
+        <div 
+          className="bg-white rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl border border-slate-200 flex flex-col"
+          style={{ maxHeight: '92vh' }}>
+          
+          {/* Top Bar (Figma Screen 5) */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: 'var(--gradient-primary)', boxShadow: '0 4px 15px rgba(99,102,241,0.35)' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <button 
+                type="button" 
+                onClick={onClose}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M19 12H5M12 19l-7-7 7-7"/>
                 </svg>
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-white tracking-tight">Compose New Campaign</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Schedule automated cold emails with BullMQ queue persistence</p>
-              </div>
+              </button>
+              <h2 className="text-base font-bold text-slate-900">
+                Compose New Email
+              </h2>
             </div>
-            <button
-              id="compose-close-btn"
-              onClick={onClose}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white transition-all"
-              style={{ border: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}>
-              ✕
-            </button>
+
+            {/* Top-Right Action Buttons */}
+            <div className="flex items-center gap-3 relative" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={onClose}
+                className="text-xs font-semibold px-3 py-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
+                Cancel
+              </button>
+
+              {/* Green Send / Schedule Dropdown (Figma) */}
+              <div className="inline-flex rounded-lg shadow-sm" style={{ background: '#00a854' }}>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleSubmit()}
+                  className="px-4 py-2 text-xs font-bold text-white hover:bg-emerald-600 rounded-l-lg transition-colors flex items-center gap-1.5">
+                  {loading ? 'Scheduling...' : 'Send'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowScheduleDropdown(!showScheduleDropdown)}
+                  className="px-2.5 py-2 text-white hover:bg-emerald-600 rounded-r-lg border-l border-emerald-400 transition-colors"
+                  title="Schedule send">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                    <path d="M6 9l6 6 6-6"/>
+                  </svg>
+                </button>
+              </div>
+
+              {/* Schedule Popover (Figma Screen 5 & 6) */}
+              {showScheduleDropdown && (
+                <div className="absolute right-0 top-12 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-4 z-50 text-xs">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                    <span className="font-bold text-slate-900">Send Later</span>
+                    <button onClick={() => setShowScheduleDropdown(false)} className="text-slate-400 hover:text-slate-700">✕</button>
+                  </div>
+
+                  <p className="text-[11px] font-semibold text-slate-500 mb-2">QUICK PRESETS</p>
+                  <div className="space-y-1 mb-4">
+                    <button
+                      type="button"
+                      onClick={setPresetIn30s}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 font-medium flex items-center justify-between">
+                      <span>⚡ Send in 30 seconds</span>
+                      <span className="text-[10px] text-slate-400">instant test</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPresetTomorrow(8)}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-700 font-medium flex items-center justify-between">
+                      <span>Tomorrow, 8:00 AM</span>
+                      <span className="text-[10px] text-slate-400">Morning</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPresetTomorrow(13)}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-700 font-medium flex items-center justify-between">
+                      <span>Tomorrow, 1:00 PM</span>
+                      <span className="text-[10px] text-slate-400">Afternoon</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPresetTomorrow(18)}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-700 font-medium flex items-center justify-between">
+                      <span>Tomorrow, 6:00 PM</span>
+                      <span className="text-[10px] text-slate-400">Evening</span>
+                    </button>
+                  </div>
+
+                  <p className="text-[11px] font-semibold text-slate-500 mb-1.5">CUSTOM DATE & TIME</p>
+                  <input
+                    type="datetime-local"
+                    name="scheduledAt"
+                    value={form.scheduledAt}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs mb-3 text-slate-800"
+                  />
+
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setShowScheduleDropdown(false)}
+                      className="px-3 py-1.5 rounded text-slate-600 hover:bg-slate-100">
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowScheduleDropdown(false)}
+                      className="px-3 py-1.5 rounded font-bold text-white bg-[#00a854] hover:bg-emerald-600">
+                      Done
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="p-6 space-y-5">
-            {/* Subject */}
-            <Input
-              id="email-subject"
-              label="Subject"
-              name="subject"
-              placeholder="e.g. Scaling outreach with AI workflows..."
-              value={form.subject}
-              onChange={handleChange}
-              error={errors.subject}
-            />
+          {/* Form Fields (Figma Screens 5, 6, 7) */}
+          <div className="p-6 space-y-4 overflow-y-auto flex-1">
+            {/* From field */}
+            <div className="flex items-center gap-3 py-2 border-b border-slate-100 text-xs">
+              <span className="w-16 font-semibold text-slate-400">From:</span>
+              <div className="px-2.5 py-1 rounded-md bg-slate-100 font-mono text-slate-700 text-xs">
+                {form.sender}
+              </div>
+            </div>
 
-            {/* Body */}
-            <Textarea
-              id="email-body"
-              label="Email Body"
-              name="body"
-              placeholder="Write your email content here (HTML supported)..."
-              value={form.body}
-              onChange={handleChange}
-              error={errors.body}
-              rows={4}
-            />
-
-            {/* Sender */}
-            <Input
-              id="email-sender"
-              label="Sender Email Address"
-              name="sender"
-              type="email"
-              placeholder="e.g. founder@company.com"
-              value={form.sender}
-              onChange={handleChange}
-              error={errors.sender}
-              hint="Multiple senders are supported — each receives an isolated fake SMTP inbox"
-            />
-
-            {/* Recipients */}
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                  Target Recipients & Leads
-                </label>
+            {/* To field with CSV upload */}
+            <div className="flex items-start gap-3 py-2 border-b border-slate-100 text-xs">
+              <span className="w-16 font-semibold text-slate-400 pt-1.5">To:</span>
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Enter recipients (comma-separated)..."
+                    value={rawRecipients}
+                    onChange={handleRecipientsChange}
+                    className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#00a854]"
+                  />
+                  <label 
+                    htmlFor="csv-upload-input"
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer font-semibold text-slate-600 text-[11px] flex items-center gap-1.5 shrink-0">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    Upload CSV
+                    <input id="csv-upload-input" type="file" accept=".csv,.txt" className="hidden" onChange={handleFileUpload} />
+                  </label>
+                </div>
                 {recipients.length > 0 && (
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    ✓ {recipients.length} lead{recipients.length !== 1 ? 's' : ''} detected
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      ✓ {recipients.length} lead{recipients.length !== 1 ? 's' : ''} detected
+                    </span>
+                    {recipients.slice(0, 3).map(r => (
+                      <span key={r} className="text-[11px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                        {r}
+                      </span>
+                    ))}
+                    {recipients.length > 3 && (
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        +{recipients.length - 3} more
+                      </span>
+                    )}
+                  </div>
                 )}
+                {errors.recipients && <p className="text-red-500 text-[11px]">{errors.recipients}</p>}
               </div>
-
-              {/* File upload dropzone */}
-              <label
-                htmlFor="csv-upload"
-                className="flex items-center gap-3.5 p-3.5 rounded-xl cursor-pointer transition-all duration-200 group"
-                style={{ 
-                  border: '1.5px dashed var(--border)', 
-                  background: 'rgba(255, 255, 255, 0.02)' 
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.borderColor = 'var(--accent-primary)';
-                  e.currentTarget.style.background = 'rgba(99, 102, 241, 0.04)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = 'var(--border)';
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
-                }}>
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-transform group-hover:scale-105"
-                  style={{ background: 'var(--accent-primary-glow)', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary-light)" strokeWidth="2.5">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="17 8 12 3 7 8"/>
-                    <line x1="12" y1="3" x2="12" y2="15"/>
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-slate-200">Upload CSV or Text Lead List</p>
-                  <p className="text-[11px] text-slate-400 truncate">
-                    {recipientsFromFile > 0
-                      ? `✓ ${recipientsFromFile} email addresses parsed and deduplicated from file`
-                      : 'Auto-extracts emails from columns or raw text'}
-                  </p>
-                </div>
-                <span className="text-xs font-medium px-2 py-1 rounded bg-white/5 text-slate-400 group-hover:text-white border border-white/5">
-                  Browse
-                </span>
-                <input id="csv-upload" type="file" accept=".csv,.txt" className="hidden" onChange={handleFileUpload} />
-              </label>
-
-              <Textarea
-                id="recipients-text"
-                name="recipients"
-                placeholder="Or paste email addresses directly (comma or newline separated)..."
-                value={rawRecipients}
-                onChange={handleRecipientsChange}
-                rows={2}
-              />
-              {errors.recipients && <p className="text-xs text-red-400 font-medium">{errors.recipients}</p>}
             </div>
 
-            {/* Schedule time */}
-            <div>
-              <Input
-                id="schedule-time"
-                label="Scheduled Start Date & Time"
-                name="scheduledAt"
-                type="datetime-local"
-                value={form.scheduledAt}
+            {/* Subject field */}
+            <div className="flex items-center gap-3 py-2 border-b border-slate-100 text-xs">
+              <span className="w-16 font-semibold text-slate-400">Subject:</span>
+              <input
+                type="text"
+                name="subject"
+                placeholder="Subject..."
+                value={form.subject}
                 onChange={handleChange}
-                error={errors.scheduledAt}
-                min={minDatetime}
+                className="flex-1 py-1 text-xs text-slate-900 font-medium placeholder:text-slate-400 focus:outline-none"
               />
-              <div className="flex items-center gap-2 mt-2.5">
-                <span className="text-[11px] font-medium text-slate-400">Quick preset:</span>
-                {[
-                  { label: '+2 mins', mins: 2 },
-                  { label: '+5 mins', mins: 5 },
-                  { label: '+15 mins', mins: 15 },
-                  { label: '+1 hour', mins: 60 },
-                ].map(preset => (
-                  <button
-                    key={preset.label}
-                    type="button"
-                    onClick={() => setQuickTime(preset.mins)}
-                    className="text-xs font-semibold px-2.5 py-1 rounded-md transition-all"
-                    style={{ 
-                      background: 'rgba(255, 255, 255, 0.04)', 
-                      border: '1px solid var(--border)', 
-                      color: 'var(--text-secondary)' 
-                    }}
-                    onMouseEnter={e => { 
-                      e.currentTarget.style.borderColor = 'var(--accent-primary)'; 
-                      e.currentTarget.style.color = '#ffffff'; 
-                      e.currentTarget.style.background = 'rgba(99, 102, 241, 0.15)'; 
-                    }}
-                    onMouseLeave={e => { 
-                      e.currentTarget.style.borderColor = 'var(--border)'; 
-                      e.currentTarget.style.color = 'var(--text-secondary)'; 
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)'; 
-                    }}>
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
+              {errors.subject && <span className="text-red-500 text-[11px]">{errors.subject}</span>}
             </div>
 
-            {/* Advanced settings */}
-            <div className="p-4 rounded-xl" 
-              style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border)' }}>
-              <div className="flex items-center justify-between mb-3.5">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                  Rate Limiting & Provider Throttling
-                </p>
-                <span className="text-[10px] text-slate-500 font-mono">BULLMQ LIMITER</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  id="hourly-limit"
-                  label="Emails / Hour (Sender Limit)"
-                  name="hourlyLimit"
+            {/* Delay & Limit Controls (Figma Screen 5 & 7) */}
+            <div className="flex items-center gap-6 py-2 border-b border-slate-100 text-xs text-slate-600 bg-slate-50/50 px-3 rounded-lg">
+              <div className="flex items-center gap-2">
+                <span>Delay between 2 emails:</span>
+                <input
                   type="number"
+                  name="delayBetweenSec"
+                  value={form.delayBetweenSec}
+                  onChange={handleChange}
+                  min={1}
+                  max={60}
+                  className="w-14 px-2 py-1 text-center font-bold bg-white border border-slate-200 rounded text-xs text-slate-800"
+                />
+                <span>sec</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span>Hourly limit:</span>
+                <input
+                  type="number"
+                  name="hourlyLimit"
                   value={form.hourlyLimit}
                   onChange={handleChange}
                   min={1}
-                  max={1000}
-                  hint="Reschedules automatically on quota hit"
+                  max={500}
+                  className="w-16 px-2 py-1 text-center font-bold bg-white border border-slate-200 rounded text-xs text-slate-800"
                 />
-                <Input
-                  id="delay-between"
-                  label="Delay Between Sends (ms)"
-                  name="delayBetweenMs"
-                  type="number"
-                  value={form.delayBetweenMs}
-                  onChange={handleChange}
-                  min={0}
-                  max={60000}
-                  hint="Mimics real SMTP provider throttling"
-                />
+              </div>
+
+              <div className="ml-auto text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-medium">
+                Scheduled for: {form.scheduledAt.replace('T', ' ')}
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-3 pt-2">
-              <Button type="button" variant="secondary" className="flex-1 text-xs py-2.5" onClick={onClose} disabled={loading}>
-                Cancel
-              </Button>
-              <button
-                id="schedule-submit-btn"
-                type="submit"
-                disabled={loading}
-                className="btn btn-primary flex-2 text-xs font-bold py-2.5 px-6 rounded-lg flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all"
-                style={{ flex: 2 }}>
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none">
-                      <circle cx="12" cy="12" r="10" stroke="white" strokeWidth="3" strokeOpacity="0.3"/>
-                      <path d="M12 2a10 10 0 0 1 10 10" stroke="white" strokeWidth="3" strokeLinecap="round"/>
-                    </svg>
-                    Scheduling Queue...
-                  </span>
-                ) : (
-                  <>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M22 2L11 13M22 2L15 22L11 13L2 9L22 2Z"/>
-                    </svg>
-                    Schedule Campaign {recipients.length > 0 ? `(${recipients.length} leads)` : ''}
-                  </>
-                )}
-              </button>
+            {/* Body Rich Area */}
+            <div className="pt-2">
+              <textarea
+                name="body"
+                placeholder="Type your reply or campaign email here..."
+                value={form.body}
+                onChange={handleChange}
+                rows={8}
+                className="w-full text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none resize-none leading-relaxed"
+              />
+              {errors.body && <p className="text-red-500 text-[11px] mt-1">{errors.body}</p>}
             </div>
-          </form>
+
+            {/* Formatting Toolbar (Figma Screen 5 Bottom Toolbar) */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-200 text-slate-400 text-xs">
+              <div className="flex items-center gap-3">
+                <button type="button" className="hover:text-slate-700 font-bold">↩</button>
+                <button type="button" className="hover:text-slate-700 font-bold">↪</button>
+                <span className="text-slate-300">|</span>
+                <button type="button" className="hover:text-slate-700 font-bold">B</button>
+                <button type="button" className="hover:text-slate-700 italic">I</button>
+                <button type="button" className="hover:text-slate-700 underline">U</button>
+                <button type="button" className="hover:text-slate-700 line-through">S</button>
+                <span className="text-slate-300">|</span>
+                <button type="button" className="hover:text-slate-700">🔗</button>
+                <button type="button" className="hover:text-slate-700">📷</button>
+                <button type="button" className="hover:text-slate-700">⠇</button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSubmit()}
+                  disabled={loading}
+                  className="px-4 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm transition-all"
+                  style={{ background: '#00a854' }}>
+                  {loading ? 'Sending...' : 'Schedule Campaign'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

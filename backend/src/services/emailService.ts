@@ -11,13 +11,40 @@ interface EtherealAccount {
 const senderAccounts = new Map<string, EtherealAccount>();
 
 /**
- * Get or create an Ethereal test account for a given sender email
- * In production this would be a real SMTP config per sender
+ * Get or create an SMTP transporter for a given sender email.
+ * If SMTP_USER & SMTP_PASS are set in backend/.env, uses real SMTP (e.g. Gmail / SendGrid / Custom).
+ * Otherwise falls back to Ethereal sandbox for safe testing with preview links.
  */
-async function getTransporterForSender(senderEmail: string): Promise<{ transporter: Transporter; from: string }> {
+async function getTransporterForSender(senderEmail: string): Promise<{ transporter: Transporter; from: string; isReal: boolean }> {
+  const realSmtpUser = process.env.SMTP_USER;
+  const realSmtpPass = process.env.SMTP_PASS;
+
+  if (realSmtpUser && realSmtpPass) {
+    const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+    const port = parseInt(process.env.SMTP_PORT || '465');
+    const secure = process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : (port === 465);
+
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: {
+        user: realSmtpUser,
+        pass: realSmtpPass,
+      },
+    });
+
+    console.log(`🚀 Using REAL SMTP (${host}:${port}) for sender ${senderEmail} via ${realSmtpUser}`);
+    return {
+      transporter,
+      from: `"${senderEmail.split('@')[0]}" <${realSmtpUser}>`,
+      isReal: true,
+    };
+  }
+
   if (senderAccounts.has(senderEmail)) {
     const account = senderAccounts.get(senderEmail)!;
-    return { transporter: account.transporter, from: `${senderEmail} <${account.user}>` };
+    return { transporter: account.transporter, from: `${senderEmail} <${account.user}>`, isReal: false };
   }
 
   // Create a new Ethereal test account
@@ -42,19 +69,20 @@ async function getTransporterForSender(senderEmail: string): Promise<{ transport
     transporter,
   });
 
-  console.log(`📧 Created Ethereal account for sender ${senderEmail}: ${testAccount.user}`);
+  console.log(`📧 Created Ethereal test account for ${senderEmail}: ${testAccount.user} (Mock Sandbox)`);
 
-  return { transporter, from: `${senderEmail} <${testAccount.user}>` };
+  return { transporter, from: `${senderEmail} <${testAccount.user}>`, isReal: false };
 }
 
 export interface SendEmailResult {
   messageId: string;
   previewUrl: string;
   accepted: string[];
+  isReal: boolean;
 }
 
 /**
- * Send a single email via Ethereal SMTP
+ * Send a single email via configured SMTP (Real SMTP or Ethereal sandbox)
  */
 export async function sendEmail(params: {
   sender: string;
@@ -62,7 +90,7 @@ export async function sendEmail(params: {
   subject: string;
   body: string;
 }): Promise<SendEmailResult> {
-  const { transporter, from } = await getTransporterForSender(params.sender);
+  const { transporter, from, isReal } = await getTransporterForSender(params.sender);
 
   const info = await transporter.sendMail({
     from,
@@ -72,14 +100,15 @@ export async function sendEmail(params: {
     html: `<div style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6;">${params.body.replace(/\n/g, '<br>')}</div>`,
   });
 
-  const previewUrl = nodemailer.getTestMessageUrl(info) || '';
+  const previewUrl = nodemailer.getTestMessageUrl(info) || (isReal ? 'REAL_EMAIL_DELIVERED' : '');
 
-  console.log(`📤 Email sent to ${params.to} | Preview: ${previewUrl}`);
+  console.log(`📤 Email sent to ${params.to} | Mode: ${isReal ? 'REAL SMTP' : 'Ethereal Test'} | Result: ${previewUrl}`);
 
   return {
     messageId: info.messageId,
     previewUrl,
     accepted: info.accepted as string[],
+    isReal,
   };
 }
 

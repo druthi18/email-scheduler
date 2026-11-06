@@ -22,6 +22,7 @@ export interface User {
 export interface EmailJob {
   id: string;
   subject: string;
+  body?: string;
   sender: string;
   recipients: string[];
   scheduledAt: string;

@@ -1,7 +1,6 @@
 'use client';
 
 import { EmailJob } from '@/types';
-import { StatusBadge, TableSkeleton, EmptyState, Button } from './ui';
 import { cancelEmail } from '@/lib/api';
 import { useState } from 'react';
 
@@ -10,6 +9,7 @@ interface EmailTableProps {
   loading: boolean;
   type: 'scheduled' | 'sent';
   onRefresh: () => void;
+  onSelectJob?: (job: EmailJob) => void;
   pagination?: {
     page: number;
     totalPages: number;
@@ -19,10 +19,13 @@ interface EmailTableProps {
 }
 
 function formatDate(dateStr: string): string {
-  if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
@@ -30,10 +33,11 @@ function truncate(str: string, n: number): string {
   return str.length > n ? str.slice(0, n) + '…' : str;
 }
 
-export default function EmailTable({ jobs, loading, type, onRefresh, pagination }: EmailTableProps) {
+export default function EmailTable({ jobs, loading, type, onRefresh, onSelectJob, pagination }: EmailTableProps) {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
-  const handleCancel = async (id: string) => {
+  const handleCancel = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
     if (!confirm('Cancel this scheduled email?')) return;
     setCancellingId(id);
     try {
@@ -50,214 +54,163 @@ export default function EmailTable({ jobs, loading, type, onRefresh, pagination 
 
   if (!loading && jobs.length === 0) {
     return (
-      <EmptyState
-        title={isScheduled ? 'No scheduled emails' : 'No sent emails'}
-        description={
-          isScheduled
-            ? 'Your scheduled emails will appear here. Click "Compose New Email" to get started.'
-            : 'Emails that have been sent or failed to send will appear here.'
-        }
-      />
+      <div className="flex flex-col items-center justify-center py-24 text-center px-4 bg-white rounded-xl border border-slate-200">
+        <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 text-xl mb-3">
+          {isScheduled ? '⏰' : '✉️'}
+        </div>
+        <h3 className="text-sm font-semibold text-slate-800">
+          {isScheduled ? 'No scheduled emails' : 'No sent emails'}
+        </h3>
+        <p className="text-xs text-slate-500 mt-1 max-w-sm">
+          {isScheduled 
+            ? 'Emails waiting in the BullMQ queue will appear here. Click "+ Compose" to schedule one.' 
+            : 'Emails that have been delivered or failed will appear here.'}
+        </p>
+      </div>
     );
   }
 
   return (
-    <div className="fade-in">
-      <div className="overflow-x-auto rounded-xl" 
-        style={{ 
-          border: '1px solid var(--border)', 
-          background: 'var(--bg-card)',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.35)'
-        }}>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Recipients</th>
-              <th>Subject</th>
-              <th>Sender</th>
-              {isScheduled ? <th>Scheduled For</th> : <th>Sent At</th>}
-              <th>Status</th>
-              {!isScheduled && <th>Ethereal Preview</th>}
-              {isScheduled && <th>Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <TableSkeleton rows={5} cols={isScheduled ? 6 : 6} />
-            ) : (
-              jobs.map((job) => {
-                const recipientList = Array.isArray(job.recipients) ? job.recipients : [];
-                const recipientDisplay = recipientList.length === 1
-                  ? recipientList[0]
-                  : `${recipientList[0]} +${recipientList.length - 1} more`;
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+      {/* Email List Rows (Figma Spec) */}
+      <div className="divide-y divide-slate-100">
+        {loading ? (
+          <div className="p-8 space-y-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="animate-pulse flex items-center gap-4">
+                <div className="w-24 h-4 bg-slate-200 rounded" />
+                <div className="w-48 h-4 bg-slate-200 rounded" />
+                <div className="flex-1 h-4 bg-slate-100 rounded" />
+                <div className="w-16 h-4 bg-slate-200 rounded" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          jobs.map((job) => {
+            const recipientList = Array.isArray(job.recipients) ? job.recipients : [];
+            const recipientDisplay = recipientList.length === 1
+              ? recipientList[0]
+              : `${recipientList[0]} (+${recipientList.length - 1})`;
 
-                return (
-                  <tr key={job.id} className="transition-colors hover:bg-white/[0.02]">
-                    {/* Recipients */}
-                    <td>
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
-                          style={{ 
-                            background: 'rgba(99, 102, 241, 0.15)', 
-                            color: '#a5b4fc',
-                            border: '1px solid rgba(99, 102, 241, 0.25)'
-                          }}>
-                          {recipientList.length}
-                        </div>
-                        <span className="text-sm font-medium" title={recipientList.join(', ')} style={{ color: 'var(--text-primary)' }}>
-                          {truncate(recipientDisplay, 34)}
-                        </span>
-                      </div>
-                    </td>
+            // Parse previews
+            let previewUrls: [string, string][] = [];
+            if (job.etherealPreviewUrl && job.etherealPreviewUrl !== 'REAL_EMAIL_DELIVERED') {
+              try {
+                if (job.etherealPreviewUrl.startsWith('{')) {
+                  previewUrls = Object.entries(JSON.parse(job.etherealPreviewUrl));
+                } else {
+                  previewUrls = [[recipientList[0] || 'email', job.etherealPreviewUrl]];
+                }
+              } catch {
+                previewUrls = [['email', job.etherealPreviewUrl]];
+              }
+            }
 
-                    {/* Subject */}
-                    <td>
-                      <span className="font-semibold text-slate-200">
-                        {truncate(job.subject, 40)}
-                      </span>
-                    </td>
+            return (
+              <div
+                key={job.id}
+                onClick={() => onSelectJob?.(job)}
+                className="group flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-3.5 hover:bg-slate-50/80 cursor-pointer transition-colors text-xs">
+                
+                {/* Left: Recipient */}
+                <div className="w-48 shrink-0 flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-[10px] shrink-0">
+                    {recipientList[0] ? recipientList[0][0].toUpperCase() : 'T'}
+                  </div>
+                  <span className="font-semibold text-slate-800 truncate" title={recipientList.join(', ')}>
+                    To: {recipientDisplay}
+                  </span>
+                </div>
 
-                    {/* Sender */}
-                    <td>
-                      <span className="text-xs px-2 py-1 rounded-md font-mono" 
-                        style={{ background: 'rgba(255, 255, 255, 0.03)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
-                        {truncate(job.sender, 24)}
-                      </span>
-                    </td>
+                {/* Middle: Badge + Subject + Snippet (Figma Layout) */}
+                <div className="flex-1 flex items-center gap-3 min-w-0">
+                  {/* Status badge pill */}
+                  {isScheduled ? (
+                    <span className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                      <span>⏰</span>
+                      <span>{formatDate(job.scheduledAt)} | Scheduled</span>
+                    </span>
+                  ) : job.etherealPreviewUrl === 'REAL_EMAIL_DELIVERED' ? (
+                    <span className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                      <span>✓</span>
+                      <span>Delivered via Gmail</span>
+                    </span>
+                  ) : (
+                    <span className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                      <span>✓</span>
+                      <span>Sent (Ethereal)</span>
+                    </span>
+                  )}
 
-                    {/* Date */}
-                    <td style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-                      <span className="inline-flex items-center gap-1.5 font-medium">
-                        <span className="text-slate-500 text-xs">🕒</span>
-                        {isScheduled ? formatDate(job.scheduledAt) : formatDate(job.sentAt || '')}
-                      </span>
-                    </td>
+                  {/* Subject & body snippet */}
+                  <span className="truncate text-slate-600">
+                    <strong className="text-slate-900 font-medium">{job.subject}</strong>
+                    <span className="mx-1.5 text-slate-400">—</span>
+                    <span className="text-slate-500">{truncate((job.body || '').replace(/<[^>]*>?/gm, ''), 70)}</span>
+                  </span>
+                </div>
 
-                    {/* Status */}
-                    <td>
-                      <StatusBadge status={job.status} />
-                    </td>
+                {/* Right: Date & Actions */}
+                <div className="shrink-0 flex items-center gap-3 justify-end text-slate-400">
+                  {/* Date */}
+                  <span className="text-[11px] text-slate-500 whitespace-nowrap">
+                    {isScheduled ? formatDate(job.scheduledAt) : formatDate(job.sentAt || '')}
+                  </span>
 
-                    {/* Preview / Actions */}
-                    {!isScheduled && (
-                      <td>
-                        {job.etherealPreviewUrl ? (
-                          (() => {
-                            try {
-                              if (job.etherealPreviewUrl.startsWith('{')) {
-                                const map: Record<string, string> = JSON.parse(job.etherealPreviewUrl);
-                                const entries = Object.entries(map);
-                                return (
-                                  <div className="flex flex-col gap-1.5 py-1">
-                                    {entries.map(([recip, url], idx) => (
-                                      <a
-                                        key={recip}
-                                        href={url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-[11px] font-semibold px-2.5 py-1 rounded-md transition-all inline-flex items-center gap-1.5 w-fit"
-                                        style={{ 
-                                          background: 'rgba(99, 102, 241, 0.12)', 
-                                          color: '#a5b4fc',
-                                          border: '1px solid rgba(99, 102, 241, 0.25)'
-                                        }}
-                                        onMouseEnter={e => {
-                                          e.currentTarget.style.background = 'rgba(99, 102, 241, 0.25)';
-                                          e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.45)';
-                                        }}
-                                        onMouseLeave={e => {
-                                          e.currentTarget.style.background = 'rgba(99, 102, 241, 0.12)';
-                                          e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.25)';
-                                        }}
-                                        title={`View email sent to ${recip}`}>
-                                        Preview #{idx + 1} ({recip.split('@')[0]}) ↗
-                                      </a>
-                                    ))}
-                                  </div>
-                                );
-                              }
-                            } catch {}
+                  {/* Previews if sent */}
+                  {!isScheduled && previewUrls.length > 0 && (
+                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                      {previewUrls.slice(0, 2).map(([recip, url], idx) => (
+                        <a
+                          key={recip}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 transition-colors"
+                          title={`Preview for ${recip}`}>
+                          Preview #{idx + 1} ↗
+                        </a>
+                      ))}
+                    </div>
+                  )}
 
-                            return (
-                              <a
-                                href={job.etherealPreviewUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                id={`preview-${job.id}`}
-                                className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all inline-flex items-center gap-1.5"
-                                style={{ 
-                                  background: 'rgba(99, 102, 241, 0.15)', 
-                                  color: '#818cf8',
-                                  border: '1px solid rgba(99, 102, 241, 0.3)'
-                                }}
-                                onMouseEnter={e => {
-                                  e.currentTarget.style.background = 'rgba(99, 102, 241, 0.25)';
-                                  e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.5)';
-                                }}
-                                onMouseLeave={e => {
-                                  e.currentTarget.style.background = 'rgba(99, 102, 241, 0.15)';
-                                  e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.3)';
-                                }}>
-                                View in Ethereal ↗
-                              </a>
-                            );
-                          })()
-                        ) : job.errorMessage ? (
-                          <span className="text-xs px-2 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20" title={job.errorMessage}>
-                            Error: {truncate(job.errorMessage, 20)}
-                          </span>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>—</span>
-                        )}
-                      </td>
-                    )}
-
-                    {isScheduled && (
-                      <td>
-                        {(job.status === 'SCHEDULED' || job.status === 'RATE_LIMITED') && (
-                          <Button
-                            id={`cancel-${job.id}`}
-                            variant="danger"
-                            size="sm"
-                            loading={cancellingId === job.id}
-                            onClick={() => handleCancel(job.id)}>
-                            Cancel
-                          </Button>
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                  {/* Cancel button if scheduled */}
+                  {isScheduled && (
+                    <button
+                      onClick={(e) => handleCancel(e, job.id)}
+                      disabled={cancellingId === job.id}
+                      className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
+                      title="Cancel email">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* Pagination */}
       {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4 px-1">
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Total: <strong style={{ color: 'var(--text-secondary)' }}>{pagination.total}</strong> emails
-          </p>
+        <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50/50 text-xs text-slate-500">
+          <span>Total: <strong>{pagination.total}</strong> emails</span>
           <div className="flex gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
+            <button
               disabled={pagination.page <= 1}
-              onClick={() => pagination.onPageChange(pagination.page - 1)}>
+              onClick={() => pagination.onPageChange(pagination.page - 1)}
+              className="px-2.5 py-1 rounded bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-50">
               ← Prev
-            </Button>
-            <span className="flex items-center px-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
-              {pagination.page} / {pagination.totalPages}
-            </span>
-            <Button
-              variant="secondary"
-              size="sm"
+            </button>
+            <button
               disabled={pagination.page >= pagination.totalPages}
-              onClick={() => pagination.onPageChange(pagination.page + 1)}>
+              onClick={() => pagination.onPageChange(pagination.page + 1)}
+              className="px-2.5 py-1 rounded bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-50">
               Next →
-            </Button>
+            </button>
           </div>
         </div>
       )}
